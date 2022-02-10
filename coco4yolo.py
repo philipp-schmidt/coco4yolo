@@ -9,6 +9,7 @@ parser.add_argument('-a', help='COCO annotation file (json)', dest='json_file', 
 parser.add_argument('-i', help='path to input folder with images', dest='input_path',required=True)
 parser.add_argument('-o', help='path to output folder where images and labels should be placed', dest='output_path',required=True)
 parser.add_argument('-c', help='list of subclasses to filter by', dest='classes_filter', nargs='+', required=False)
+parser.add_argument('--ignore-crowd', help='ignore annotations marked as object crowd', dest='ignore_crowd', action='store_true')
 
 args = parser.parse_args()
 
@@ -16,6 +17,7 @@ json_file = args.json_file
 input_path = args.input_path
 output_path = args.output_path
 classes_filter = args.classes_filter
+ignore_crowd = args.ignore_crowd
 
 def bbox_2_yolo(bbox, img_w, img_h):
     x, y, w, h = bbox[0], bbox[1], bbox[2], bbox[3]
@@ -77,12 +79,16 @@ if __name__ == '__main__':
 
     # Convert annotations
     anno_dict = {}
+    crowd_counter = 0
     for anno in json_definitions['annotations']:
         bbox = anno['bbox']
         image_id = anno['image_id']
         category_id = anno['category_id']
 
         if category_id in category_ids:
+            if ignore_crowd and anno['iscrowd'] == 1:
+                crowd_counter += 1
+                continue
             image_info = images_info.get(image_id)
             image_name = image_info[0]
             img_w = image_info[1]
@@ -96,7 +102,7 @@ if __name__ == '__main__':
             else:
                 anno_infos.append(anno_info)
                 anno_dict[image_id] = anno_infos
-    print(f"Found {reduce(lambda count, l: count + len(l), anno_dict.values(), 0)} matching annotations after filtering")
+    print(f"Found {reduce(lambda count, l: count + len(l), anno_dict.values(), 0)} matching annotations after filtering" + ("" if not ignore_crowd else f" and ignored {crowd_counter} crowd annotations"))
 
     # Set of images to copy later
     file_names = set()
